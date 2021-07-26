@@ -1,17 +1,26 @@
 package main
 
 import (
-	"net/http"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 )
 
-
-func httpclient(b string) ([]byte, error) {
-	fmt.Println(b)
-	protocol := "http://"
-	response, err := http.Get(protocol+b)
-	fmt.Println(response)
+func httpclient(b *http.Request) ([]byte, error) {
+	//	fmt.Println(b)
+	//	fmt.Println(b.URL)
+	//	fmt.Println(b.RequestURI)
+	//protocol := "http://"
+	request_protocol := b.URL.Scheme
+	fmt.Println(request_protocol)
+	request_host := b.URL.Host
+	fmt.Println(request_host)
+	request_path := b.URL.Path
+	fmt.Println(request_path)
+	complete_URL := request_protocol + "://" + request_host + request_path
+	fmt.Println(complete_URL)
+	response, err := http.Get(complete_URL)
+	//	fmt.Println(response)
 	if err != nil {
 
 		var my_response []byte
@@ -20,38 +29,47 @@ func httpclient(b string) ([]byte, error) {
 	defer response.Body.Close()
 	my_response, _ := ioutil.ReadAll(response.Body)
 
-	fmt.Printf("httpclient func variable my_response = %T\n", my_response)
+	//	fmt.Printf("httpclient func variable my_response = %T\n", my_response)
 	return my_response, nil
 }
 
-func domainsearch(b string) ([]byte, string) {
-	domains := [4] string{"www.google.com", "google.com", "facebook.com", "yahoo.com"}
-	
-	for _, name := range domains  {
-		var web_response []byte
+func domainsearch(b string) string {
+	domains := [5]string{"neverssl.com", "www.google.com", "google.com", "facebook.com", "yahoo.com"}
+
+	for _, name := range domains {
 		if name == b {
-		   dom_status := "Denied"
-		   return web_response, dom_status
-		} 
+			dom_status := "Denied"
+			return dom_status
+		}
+
 	}
-	webresponse, err := httpclient(b)
-	if err != nil {
-		web_response := []byte(nil)
-		return web_response, "Access Error"
-	}
-    return webresponse, ""
+
+	dom_status := "Granted"
+	return dom_status
+	//	webresponse, err := httpclient(b)
+	//	if err != nil {
+	//		web_response := []byte(nil)
+	//		return web_response, "Upstream Error"
+	//	}
+	//    return webresponse, ""
 }
 
 func proxyserver(w http.ResponseWriter, r *http.Request) {
 	domain_name := r.Host
-	status, err := domainsearch(domain_name)
+	status := domainsearch(domain_name)
 
-	if (err == "Denied") {
-	   http.Error(w, "Blocked", 403)
-	   return
+	if status == "Denied" {
+		http.Error(w, "Blocked", 403)
+		return
 	}
 
-	w.Write([]byte(status))
+	webresponse, err := httpclient(r)
+	if err != nil {
+		//		web_response := []byte(nil)
+		w.Write([]byte("Upstream Error"))
+
+	}
+	w.Write([]byte(webresponse))
 }
 
 func main() {
